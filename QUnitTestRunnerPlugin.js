@@ -23,6 +23,7 @@
  * configuration.
  */
 var QUnitTestRunnerPlugin = (function(window) {
+
     var QUNIT_TYPE = 'qunit'
       , DEFAULT_TIMEOUT = 5000  // default timeout for each async test in milliseconds
       , plugin = {};
@@ -58,7 +59,7 @@ var QUnitTestRunnerPlugin = (function(window) {
             testCase = testCaseInfos[i];
             if (testCase.getType() == QUNIT_TYPE) {
                 for (j = 0; j < expressions.length; j += 1) {
-                    if (testCase.getTestCaseName() === expressions[j]) {
+                    if ("all" == expressions[j] || testCase.getTestCaseName() === expressions[j]) {
                         testRunsConfiguration.push(testCase.getDefaultTestRunConfiguration());
                         foundOne = true;
                         break;  // break out of the inner loop
@@ -134,14 +135,6 @@ var QUnitTestRunnerPlugin = (function(window) {
 
         captureConsole();
 
-        // build module
-        QUnit.module.call(null, name, testEnvironment);
-
-        // build tests
-        for (var i = 0; i < tests.length; i += 1) {
-            QUnit.test.apply(null, tests[i]);
-        }
-
         // Report test results back to JsTestDriver.
         QUnit.testDone = resultBuilder(name, onTestDone);
 
@@ -151,6 +144,14 @@ var QUnitTestRunnerPlugin = (function(window) {
             restoreConsole();
             onModuleDone();
         };
+
+        // build module
+        QUnit.module.call(null, name, testEnvironment);
+
+        // build tests
+        for (var i = 0; i < tests.length; i += 1) {
+            QUnit.test.apply(null, tests[i]);
+        }
     }
 
     function resultBuilder(moduleName, callback) {
