@@ -119,7 +119,7 @@ var QUnitTestRunnerPlugin = (function(window) {
     };
 
     // One-time QUnit initialization.
-    QUnit.run();
+    QUnit.load();
 
     return plugin;
 
@@ -140,9 +140,12 @@ var QUnitTestRunnerPlugin = (function(window) {
 
         // JsTestDriver will typically run the next module of tests when this
         // callback is invoked.
+        QUnit.moduleDone = function() {
+            onModuleDone();
+        };
+
         QUnit.done = function() {
             restoreConsole();
-            onModuleDone();
         };
 
         // build module
@@ -154,16 +157,18 @@ var QUnitTestRunnerPlugin = (function(window) {
         }
     }
 
-    function resultBuilder(moduleName, callback) {
-        return function(testName, failedCount, total, failures) {
-            var result = failedCount === 0 ? 'passed' : 'failed'
-              , message = failures[0] || ''
+    function resultBuilder(moduleName, onTestDone) {
+        return function(params) {
+            var result = params.failed === 0 ? 'passed' : 'failed'
+              , message = params.failures[0] || ''
               , log = jstestdriver.console.getAndResetLog()
               , duration = 0;  // TODO: capture test duration
 
-            callback(new jstestdriver.TestResult(
-                moduleName, testName, result, message, log, duration
-            ));
+
+            var testResult = new jstestdriver.TestResult(
+                params.module, params.name, result, message, log, duration
+            );
+            onTestDone(testResult);
         };
     }
 
