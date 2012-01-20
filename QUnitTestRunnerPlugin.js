@@ -69,37 +69,24 @@ var QUnitTestRunnerPlugin = (function(window) {
         }
 
         return foundOne;
-
-        //// This code is not cross-browser safe but is a cleaner version of the above nested looping code.
-        //var configs = testCaseInfos.filter(function(testCase) {
-        //    return testCase.getType() == QUNIT_TYPE && expressions.some(function(e) {
-        //        return testCase.getTestCaseName() === e;
-        //    });
-        //}).map(function(testCase) {
-        //    return testCase.getDefaultTestRunConfiguration();
-        //});
-        //
-        //testRunsConfiguration.push(configs);
-        //
-        //return configs.length > 0;
     };
 
     /* Capture QUnit API calls to hook them into the JSTestDriver API. */
 
-    var currentModule;
+    var currentTestCase;
 
     window.module = function(name, testEnvironment) {
-        currentModule = jstestdriver.testCaseBuilder.TestCase(
+        currentTestCase = jstestdriver.testCaseBuilder.TestCase(
             name,
             testEnvironment,
             QUNIT_TYPE
         );
     
-        currentModule.tests = [];
+        currentTestCase.tests = [];
     };
     
     window.test = function() {
-        currentModule.tests.push(arguments);
+        currentTestCase.tests.push(arguments);
     };
 
     window.asyncTest = QUnit.asyncTest = function(testName, expected, callback) {
@@ -133,19 +120,37 @@ var QUnitTestRunnerPlugin = (function(window) {
           , testEnvironment = info.getTemplate().prototype
           , tests = info.getTemplate().tests;
 
-        captureConsole();
+        QUnit.config.autorun = false;
 
-        // Report test results back to JsTestDriver.
-        QUnit.testDone = resultBuilder(name, onTestDone);
-
-        // JsTestDriver will typically run the next module of tests when this
-        // callback is invoked.
-        QUnit.moduleDone = function() {
-            onModuleDone();
+        QUnit.begin = function() {
+            console.log("begin");
         };
 
         QUnit.done = function() {
+            console.log("done");
+        };
+
+
+        QUnit.moduleStart = function() {
+            console.log("moduleStart");
+        };
+
+        QUnit.moduleDone = function() {
+            console.log("moduleDone");
+            onModuleDone();
+        };
+
+        QUnit.testStart = function() {
+            console.log("testStart");
+            captureConsole();
+        };
+
+        QUnit.testDone = function(params) {
             restoreConsole();
+            console.log("testDone");
+
+            var testResult = buildTestResult(params);
+            onTestDone(testResult);
         };
 
         // build module
@@ -155,21 +160,20 @@ var QUnitTestRunnerPlugin = (function(window) {
         for (var i = 0; i < tests.length; i += 1) {
             QUnit.test.apply(null, tests[i]);
         }
+
+        QUnit.start();
     }
 
-    function resultBuilder(moduleName, onTestDone) {
-        return function(params) {
-            var result = params.failed === 0 ? 'passed' : 'failed'
-              , message = params.failures[0] || ''
-              , log = jstestdriver.console.getAndResetLog()
-              , duration = 0;  // TODO: capture test duration
+    function buildTestResult(params) {
+        var result = params.failed === 0 ? 'passed' : 'failed'
+            , message = params.failures[0] || ''
+            , log = jstestdriver.console.getAndResetLog()
+            , duration = 0;  // TODO: capture test duration
 
 
-            var testResult = new jstestdriver.TestResult(
-                params.module, params.name, result, message, log, duration
-            );
-            onTestDone(testResult);
-        };
+        return new jstestdriver.TestResult(
+            params.module, params.name, result, message, log, duration
+        );
     }
 
     var restoreConsole;
@@ -181,11 +185,11 @@ var QUnitTestRunnerPlugin = (function(window) {
           , logWarn = console.warn
           , logError = console.error;
 
-        console.log = function() { jstestdriver.console.log.apply(jstestdriver.console, arguments); };
-        console.debug = function() { jstestdriver.console.debug.apply(jstestdriver.console, arguments); };
-        console.info = function() { jstestdriver.console.info.apply(jstestdriver.console, arguments); };
-        console.warn = function() { jstestdriver.console.warn.apply(jstestdriver.console, arguments); };
-        console.error = function() { jstestdriver.console.error.apply(jstestdriver.console, arguments); };
+        console.log = function() { logMethod.apply(console, arguments); jstestdriver.console.log.apply(jstestdriver.console, arguments); };
+        console.debug = function() { logDebug.apply(console, arguments); jstestdriver.console.debug.apply(jstestdriver.console, arguments); };
+        console.info = function() { logInfo.apply(console, arguments); jstestdriver.console.info.apply(jstestdriver.console, arguments); };
+        console.warn = function() { logWarn.apply(console, arguments); jstestdriver.console.warn.apply(jstestdriver.console, arguments); };
+        console.error = function() { logError.apply(console, arguments); jstestdriver.console.error.apply(jstestdriver.console, arguments); };
 
         restoreConsole = function() {
             console.log = logMethod;
