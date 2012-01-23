@@ -22,11 +22,12 @@
  * the attached modified copy of QUnit as dependencies in your JsTestDriver
  * configuration.
  */
-var QUnitTestRunnerPlugin = (function(window) {
+var QUnitTestRunnerPlugin = (function(window, $) {
 
     var QUNIT_TYPE = 'qunit'
       , DEFAULT_TIMEOUT = 5000  // default timeout for each async test in milliseconds
-      , plugin = {};
+      , plugin = {}
+      , doneModules = {};
 
     /**
      * Part of the JsTestDriver plugin API, specifies the name of this plugin.
@@ -105,8 +106,33 @@ var QUnitTestRunnerPlugin = (function(window) {
         return origStop(timeout || DEFAULT_TIMEOUT);
     };
 
+
+    var callbacks = {};
+    var phases = ['begin', 'end', 'moduleStart', 'moduleDone', 'testStart', 'testDone'];
+
+    function registerCallback(phase, callback) {
+        callbacks[phase] = callbacks[phase] || [];
+        callbacks[phase].push(callback);
+    }
+
+    function runCallback(phase, parameters) {
+        if (callbacks[phase]) {
+            for (var key in callbacks[phase]) {
+                callbacks[phase][key].apply(QUnit, parameters);
+            }
+        }
+    }
+
+    for (var key in phases) {
+        QUnit[phases[key]] = (function(phase) {
+            return function(callback) {
+                registerCallback(phase, callback);
+            };
+        })(phases[key]);
+    }
+
     // One-time QUnit initialization.
-    QUnit.load();
+
 
     return plugin;
 
@@ -116,51 +142,70 @@ var QUnitTestRunnerPlugin = (function(window) {
      */
     function runTests(testRunConfiguration, onTestDone, onModuleDone) {
         var info = testRunConfiguration.getTestCaseInfo()
-          , name = info.getTestCaseName()
+          , moduleName = info.getTestCaseName()
           , testEnvironment = info.getTemplate().prototype
           , tests = info.getTemplate().tests;
 
-        QUnit.config.autorun = false;
 
-        QUnit.begin = function() {
-            console.log("begin");
+
+        var callbacks = {};
+
+        var config = QUnit.config;
+
+
+
+        QUnit.begin = function(callback) {
+//            console.log("begin");
+            runCallback('begin', arguments);
         };
 
         QUnit.done = function() {
-            console.log("done");
+//            console.log("done");
+            runCallback('done',arguments);
         };
 
 
         QUnit.moduleStart = function() {
-            console.log("moduleStart");
+//            console.log("moduleStart");
+            runCallback('moduleStart', arguments);
         };
 
-        QUnit.moduleDone = function() {
-            console.log("moduleDone");
-            onModuleDone();
+        QUnit.moduleDone = function(params) {
+//            console.log("moduleDone");
+            if (!doneModules[params.name]) {
+                doneModules[params.name] = true;
+                runCallback('moduleDone', arguments);
+                onModuleDone();
+            }
         };
 
         QUnit.testStart = function() {
-            console.log("testStart");
+//            console.log("testStart " + arguments);
+            runCallback('testStart', arguments);
             captureConsole();
         };
 
         QUnit.testDone = function(params) {
             restoreConsole();
-            console.log("testDone");
+//            console.log("testDone");
+            var copy = $.extend({}, params);
+            delete copy.failures;
+            runCallback('testDone', [copy]);
 
             var testResult = buildTestResult(params);
             onTestDone(testResult);
         };
 
         // build module
-        QUnit.module.call(null, name, testEnvironment);
+        QUnit.module.call(null, moduleName, testEnvironment);
 
         // build tests
         for (var i = 0; i < tests.length; i += 1) {
             QUnit.test.apply(null, tests[i]);
         }
 
+        QUnit.config.autorun = false;
+        QUnit.load();
         QUnit.start();
     }
 
@@ -199,7 +244,7 @@ var QUnitTestRunnerPlugin = (function(window) {
             console.error = logError;  
         };
     }
-})(this);
+})(this, jstestdriver.jQuery);
 
 // Registers this plugin with JsTestDriver.
 jstestdriver.pluginRegistrar.register(QUnitTestRunnerPlugin);
