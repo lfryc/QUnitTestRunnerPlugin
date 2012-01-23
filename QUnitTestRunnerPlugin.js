@@ -39,6 +39,8 @@ var QUnitTestRunnerPlugin = (function(window, $) {
      * all of the tests in a specified module.
      */
     plugin.runTestConfiguration = function(testRunConfiguration, onTestDone, onTestRunConfigurationComplete) {
+        console.log("runTestConfiguration");
+
         // Handle this set of tests if it is a QUnit module.
         if (testRunConfiguration.getTestCaseInfo().getType() == QUNIT_TYPE) {
             runTests(testRunConfiguration, onTestDone, onTestRunConfigurationComplete);
@@ -53,6 +55,10 @@ var QUnitTestRunnerPlugin = (function(window, $) {
      * `--tests` option to JsTestDriver.
      */
     plugin.getTestRunsConfigurationFor = function(testCaseInfos, expressions, testRunsConfiguration) {
+        console.log("getTestRunsConfigurationFor");
+
+        onBeforeStart();
+
         var i, j, foundOne = false, testCase;
 
         // Find QUnit test cases with names that match any of the given expressions.
@@ -61,6 +67,7 @@ var QUnitTestRunnerPlugin = (function(window, $) {
             if (testCase.getType() == QUNIT_TYPE) {
                 for (j = 0; j < expressions.length; j += 1) {
                     if ("all" == expressions[j] || testCase.getTestCaseName() === expressions[j]) {
+                        registerTestCaseinQUnit(testCase.getDefaultTestRunConfiguration());
                         testRunsConfiguration.push(testCase.getDefaultTestRunConfiguration());
                         foundOne = true;
                         break;  // break out of the inner loop
@@ -72,9 +79,68 @@ var QUnitTestRunnerPlugin = (function(window, $) {
         return foundOne;
     };
 
+    function onBeforeStart() {
+        QUnit.begin = function(callback) {
+            console.log("begin");
+            runCallback('begin', arguments);
+        };
+
+        QUnit.done = function() {
+            console.log("done");
+            runCallback('done',arguments);
+        };
+
+
+        QUnit.moduleStart = function() {
+//            console.log("moduleStart");
+            runCallback('moduleStart', arguments);
+        };
+
+
+
+        QUnit.testStart = function() {
+//            console.log("testStart " + arguments);
+            runCallback('testStart', arguments);
+            captureConsole();
+        };
+
+        QUnit.config.autorun = false;
+        QUnit.load();
+    }
+
+    function registerTestCaseinQUnit(testRunConfiguration) {
+        var info = testRunConfiguration.getTestCaseInfo()
+            , moduleName = info.getTestCaseName()
+            , testEnvironment = info.getTemplate().prototype
+            , tests = info.getTemplate().tests;
+
+        // build module
+        QUnit.module.call(null, moduleName, testEnvironment);
+
+        // build tests
+        for (var i = 0; i < tests.length; i += 1) {
+            QUnit.test.apply(null, tests[i]);
+        }
+    }
+
+    plugin.onTestsStart = function() {
+        console.log("onTestStart");
+
+
+
+        QUnit.start();
+
+
+    };
+
+    plugin.onTestsFinish = function() {
+        console.log("onTestsFinish");
+    };
+
     /* Capture QUnit API calls to hook them into the JSTestDriver API. */
 
     var currentTestCase;
+
 
     window.module = function(name, testEnvironment) {
         currentTestCase = jstestdriver.testCaseBuilder.TestCase(
@@ -154,22 +220,6 @@ var QUnitTestRunnerPlugin = (function(window, $) {
 
 
 
-        QUnit.begin = function(callback) {
-//            console.log("begin");
-            runCallback('begin', arguments);
-        };
-
-        QUnit.done = function() {
-//            console.log("done");
-            runCallback('done',arguments);
-        };
-
-
-        QUnit.moduleStart = function() {
-//            console.log("moduleStart");
-            runCallback('moduleStart', arguments);
-        };
-
         QUnit.moduleDone = function(params) {
 //            console.log("moduleDone");
             if (!doneModules[params.name]) {
@@ -177,12 +227,6 @@ var QUnitTestRunnerPlugin = (function(window, $) {
                 runCallback('moduleDone', arguments);
                 onModuleDone();
             }
-        };
-
-        QUnit.testStart = function() {
-//            console.log("testStart " + arguments);
-            runCallback('testStart', arguments);
-            captureConsole();
         };
 
         QUnit.testDone = function(params) {
@@ -195,18 +239,6 @@ var QUnitTestRunnerPlugin = (function(window, $) {
             var testResult = buildTestResult(params);
             onTestDone(testResult);
         };
-
-        // build module
-        QUnit.module.call(null, moduleName, testEnvironment);
-
-        // build tests
-        for (var i = 0; i < tests.length; i += 1) {
-            QUnit.test.apply(null, tests[i]);
-        }
-
-        QUnit.config.autorun = false;
-        QUnit.load();
-        QUnit.start();
     }
 
     function buildTestResult(params) {
