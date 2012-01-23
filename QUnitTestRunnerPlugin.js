@@ -92,14 +92,14 @@ var QUnitTestRunnerPlugin = (function(window, $) {
 
 
         QUnit.moduleStart = function() {
-//            console.log("moduleStart");
+            console.log("moduleStart");
             runCallback('moduleStart', arguments);
         };
 
 
 
         QUnit.testStart = function() {
-//            console.log("testStart " + arguments);
+            console.log("testStart ");
             runCallback('testStart', arguments);
             captureConsole();
         };
@@ -167,10 +167,10 @@ var QUnitTestRunnerPlugin = (function(window, $) {
 
     // Time out async tests after the default timeout interval if no overriding
     // interval is given.
-    var origStop = QUnit.stop;
-    window.stop = QUnit.stop = function(timeout) {
-        return origStop(timeout || DEFAULT_TIMEOUT);
-    };
+//    var origStop = QUnit.stop;
+//    window.stop = QUnit.stop = function(timeout) {
+//        return origStop(timeout || DEFAULT_TIMEOUT);
+//    };
 
 
     var callbacks = {};
@@ -221,7 +221,7 @@ var QUnitTestRunnerPlugin = (function(window, $) {
 
 
         QUnit.moduleDone = function(params) {
-//            console.log("moduleDone");
+            console.log("moduleDone");
             if (!doneModules[params.name]) {
                 doneModules[params.name] = true;
                 runCallback('moduleDone', arguments);
@@ -231,7 +231,7 @@ var QUnitTestRunnerPlugin = (function(window, $) {
 
         QUnit.testDone = function(params) {
             restoreConsole();
-//            console.log("testDone");
+            console.log("testDone");
             var copy = $.extend({}, params);
             delete copy.failures;
             runCallback('testDone', [copy]);
