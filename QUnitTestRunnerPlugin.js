@@ -80,6 +80,8 @@ var QUnitTestRunnerPlugin = (function(window, $) {
     };
 
     function onBeforeStart() {
+        preload();
+
         QUnit.begin = function(callback) {
             console.log("begin");
             runCallback('begin', arguments);
